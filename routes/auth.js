@@ -5,55 +5,32 @@ const { body, validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
+const { internalServerError, invalidDataError, accessForbiddenError } = require('./response');
 
 const User = require('../models/users');
-
-const internalServerError = (res, err, at) => {
-  return res.status(500).json({
-    error: err,
-    message: "Internal server error at " + at
-  })
-}
 
 const verifyToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1] || req.cookies.token;
     if (token) {
       jwt.verify(token, process.env.JWT_KEY, (err, data) => {
         if (err) {
-          console.log(err);
-          res.status(403).json({
-            message: "Access Forbidden"
-          });
+          accessForbiddenError(res, err, 'function verifyToken, if (err) passed');
         } else {
           next();
         }
       });
     } else {
-      res.status(403).json({
-        message: "Access Forbidden"
-      });
+      accessForbiddenError(res, 'No token', 'function verifyToken, if (token) failed')
     }
 }
 
-router.get('/verify-token', (req, res, next) => {
-  const token = req.headers['authorization']?.split(' ')[1] || req.cookies.token;
-  if (token) {
-    jwt.verify(token, process.env.JWT_KEY, (err, data) => {
-      if (err) {
-        res.status(403).json({
-          message: "Access Forbidden"
-        });
-      } else {
-        res.status(200).json({
-          message: "Access granted"
-        })
-      }
-    });
-  } else {
-    res.status(403).json({
-      message: "Access Forbidden"
-    });
-  }
+/*
+Verify Token route
+*/
+router.get('/verify-token', verifyToken, (req, res, next) => {
+  res.status(200).json({
+    message: "Access granted"
+  });
 })
 
 /*
@@ -63,10 +40,8 @@ if user is found, passwords are compared with bcrypt, in case they dont match, b
 so that we can send response in one then() cell
 */
 router.post('/login', (req, res, next) => {
-  console.log('Creds', req.body.username, req.body.password);
   User.findOne({username: req.body.username})
     .then(user => {
-      console.log(user, req.body.username);
       if (!user) {
         return false;
       } else {
@@ -78,16 +53,9 @@ router.post('/login', (req, res, next) => {
     .then(result => {
       if (result) {
         const token = jwt.sign({userId: result._id}, process.env.JWT_KEY, { expiresIn: process.env.JWT_EXPIRES_IN});
-        // !!!WARNING: IN PRODUCTION CHANGE SECURE TO TRUE
-        /*
-        httpOnly: true,
-        secure: false,
-        signed: true
-        7200000 is 2h
-        */
         res.cookie('token', token, {
-          httpOnly: true,
-          secure: false,
+          httpOnly: process.env.COOKIE.HTTPONLY,
+          secure: process.env.COOKIE.SECURE,
           expires: new Date(Date.now() + 7200000)
         });
         res.status(200).json({
@@ -101,19 +69,20 @@ router.post('/login', (req, res, next) => {
       }
     })
     .catch(err => {
-      internalServerError(res, err, "router.post /login");
+      internalServerError(res, err, "route post('/login')");
     })
 });
 
 router.get('/logout', (req, res, next) => {
   res.clearCookie('token', {
     httpOnly: true,
-    secure: false
+    secure: true
   });
   res.status(200).json({
     message: "Logged out successfully"
   });
 })
+
 const checkIfUserExists = (req, res, next) => {
   User.find({username: req.body.username})
     .then(user => {

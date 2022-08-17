@@ -11,15 +11,17 @@ const port = process.env.PORT || 5000;
 
 // connect to mongo
 mongoose.connect(
-  "mongodb+srv://" +
-  process.env.MONGO_UNAME +
-  ":" + process.env.MONGO_PSSWD +
-  "@cluster0.jxglz.mongodb.net/?retryWrites=true&w=majority"
-).then(result => {
-  console.log("Connected to mongo successfully");
-}).catch(err => {
-  console.log(err);
-});
+    "mongodb+srv://" +
+    process.env.MONGO_UNAME +
+    ":" + process.env.MONGO_PSSWD +
+    "@cluster0.jxglz.mongodb.net/?retryWrites=true&w=majority"
+  )
+  .then(result => {
+    console.log("Connected to mongo successfully");
+  }).catch(err => {
+    console.log("Attempt to connect to mongo failed");
+    console.log(err);
+  });
 
 app.use(morgan('dev'));
 app.use(cookieParser());
@@ -27,8 +29,7 @@ app.use(cookieParser());
 // enable CORS
 // allow PUT, POST, PATCH, DELETE, GET
 app.use((req, res, next) => {
-  // You can replace * with your domain name to allow api usage only there
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.header('Access-Control-Allow-Origin', process.env.ALLOW_ORIGIN);
   res.header('Access-Control-Allow-Credentials', true);
   res.header(
     'Access-Control-Allow-Headers',
@@ -41,10 +42,9 @@ app.use((req, res, next) => {
   next();
 });
 
-
 // enable urlencoded things eg html forms data (FOR POST/PUT)
 // if this thing wasnt there then printing req.body will return undefined (when postman is set to x-www-form-urlencoded)
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 
 // enable middleware that lets you preview JSON data that was sent to you (FOR POST/PUT)
 // in postman set datatype to raw and JSON
